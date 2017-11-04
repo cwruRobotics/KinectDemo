@@ -54,6 +54,8 @@ namespace Microsoft.Samples.Kinect.DepthBasics
         /// </summary>
         private byte[] depthPixels = null;
 
+        private ushort[] depthMM = null;
+
         /// <summary>
         /// Frame data for specific Y coord, viewed from above
         /// </summary>
@@ -120,6 +122,8 @@ namespace Microsoft.Samples.Kinect.DepthBasics
 
             // allocate space to put the pixels being received and converted
             this.depthPixels = new byte[this.depthFrameDescription.Width * this.depthFrameDescription.Height];
+
+            this.depthMM = new ushort[this.depthFrameDescription.Width * this.depthFrameDescription.Height];
 
             this.depthPixelsY = new byte[this.depthFrameReader.DepthFrameSource.DepthMaxReliableDistance * this.depthFrameDescription.Width];
 
@@ -211,7 +215,7 @@ namespace Microsoft.Samples.Kinect.DepthBasics
         private void Image_MouseDown(object sender, MouseEventArgs e)
         {
             int i = (int) (this.depthBitmap.PixelWidth * e.GetPosition(this).Y + e.GetPosition(this).X);
-            Debug.WriteLine(e.GetPosition(this).X + ", " + e.GetPosition(this).Y + " : "+ptc[i].ToString());
+            //Debug.WriteLine(e.GetPosition(this).X + ", " + e.GetPosition(this).Y + " : "+depthPixels[i]);
         }
 
         /// <summary>
@@ -333,15 +337,34 @@ namespace Microsoft.Samples.Kinect.DepthBasics
                     double newZ = depth * Math.Cos(phi);
                     this.ptc[i] = new PointCloudVertex(newX/1000, newY/1000, newZ/1000);
                     **/
-                    if (i > width)
+
+                    depthMM[i] = depth; 
+                }
+            }
+            for(int x = 0; x < width-1; x++)
+            {
+                for(int y = 0; y < height-1; y++)
+                {
+                    if (x > 0 && x < width && y > 0 && y < height)
                     {
-                        depthPixels[i] = (byte)Math.Abs(depth - depthPixels[i - width]);
+                        double x1 = Math.Abs(depthMM[getIndexFromXY(x, y, width)] - depthMM[getIndexFromXY(x - 1, y, width)]);
+                        double x2 = Math.Abs(depthMM[getIndexFromXY(x, y, width)] - depthMM[getIndexFromXY(x + 1, y, width)]);
+                        double y1 = Math.Abs(depthMM[getIndexFromXY(x, y, width)] - depthMM[getIndexFromXY(x, y-1, width)]);
+                        double y2 = Math.Abs(depthMM[getIndexFromXY(x, y, width)] - depthMM[getIndexFromXY(x, y+1, width)]);
+
+                        depthPixels[getIndexFromXY(x, y, width)] = (byte)(Math.Sqrt(Math.Pow(x1 + x2, 2) + Math.Pow(y1 + y2, 2)));
                     }
                 }
             }
+
             
             
 
+        }
+
+        private int getIndexFromXY(int x, int y, int width)
+        {
+            return width * y + x;
         }
         /// <summary>
         /// Renders color pixels into the writeableBitmap.
