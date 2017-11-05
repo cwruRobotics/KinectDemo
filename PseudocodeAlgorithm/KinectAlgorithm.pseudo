@@ -1,0 +1,92 @@
+
+Given: depth pixels in an int array of size 512 horizontal * 424 vertical
+      indexed at 0, so pixel 0 to 511, pixel 0 to 423
+
+This describes an algorithm using gradient-based detection of obstacles
+
+Some values to Kinect One's IR depth-finding capabilities
+final int MAX_HORIZONTAL = 512
+final int MAX_VERTICAL = 424
+final int MAX_PIXELS = 512 * 424
+FOVs can be found somewhere else
+
+final int MAX_HORIZ_INDEX = 511
+final int MAX_VERTICAL_INDEX = 423;
+final int MAX_TOTAL_INDEX = MAX_HORIZ_INDEX * MAX_VERTICAL_INDEX
+
+int depthTolerance
+
+traversing across, considering indexing at 0
+
+int depthArray given by kinect
+
+
+function findObstacles() returns list of obstacles{
+
+  starting point int horizontalTraverseIndex = 0
+  arbitrarily defining an int intervalPixel = 10 to traverse by
+  obstacleList of obstacles, location and radius, to return to autonomy
+
+  while (horizontalTraverseIndex < MAX_HORIZ_INDEX) {
+
+    if (searchForObstacleUpperEdge -> depthDifference is not null){
+
+      try and search for the left edge, if applicable
+        store leftmost edge, within detectable bounds
+
+      try and search for the right edge
+        store highest vertical edge information, if we want it
+        store rightmost edge, within detectable bounds
+
+      use trig to find probable diameter of the obstacle based on left & rightmost edges
+      radius = this diameter/2 + ARBITARY_RADIUS_PADDING
+
+      use trig to find location of center, for this obstacle
+      location <- calculated location
+
+      add this new Obstacle to the obstacleList
+
+      set horizontalTraverseIndex to beyond the rightmost position
+    }
+    otherwise, horizontalTraverseIndex += intervalPixel
+  }
+
+  if in FOV, those obstacles in obstacleList now
+  return obstacleList
+
+}
+
+maybe also pass currentRowIndex if we want to control that
+function obstacleEdge searchForObstacleUpperEdge (integer horizontalIndex){
+int currentRowIndex = 0;
+
+return position of the difference pixel, if it exists, and the depth for a selected row
+while(currentRowIndex < MAX_VERTICAL_INDEX) {
+
+  to start with bottommost pixels, so we start looking from the area closest to  the kinect
+    try to get indicies of a valid starting point
+    do:
+    lower pixel: int bottomDepthIndex = MAX_TOTAL_INDEX - (MAX_HORIZ_INDEX * currentRowIndex)
+    while, if depthArray[bottomDepthIndex] is invalid (0), try currentRowIndex + 1
+
+    do:
+    higher pixel: int topDepthIndex = lowerDepthIndex + MAX_HORIZ_INDEX
+    while, if depthArray[topDepthIndex] is invalid, try currentRowIndex + 1
+
+    Use the 'higher' pixel to describe difference, and position where gradient occurs
+
+  Using valid depth values,
+  int milliDepthDifference = depthArray[topDepthIndex] - depthArray[bottomDepthIndex]
+
+  return milliDepthDifference, topDepthIndex if milliDepthDifference > depthTolerance;
+      Determine if we want to detect holes whatsoever, since abs value is easier to work with
+  else
+  return milliDepthDifference null, meaning no significant difference detected
+  }
+}
+;
+
+
+
+
+}
