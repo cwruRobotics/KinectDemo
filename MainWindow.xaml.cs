@@ -64,39 +64,14 @@ namespace Microsoft.Samples.Kinect.DepthBasics
         private PointCloudVertex[] ptc;
 
         /// <summary>
-        /// depth limits and color values for image segmentation
+        /// Decides which pixels are teken into account for gradient calculations
         /// </summary>
-        private Dictionary<int, Color> imageSegmentColors = new Dictionary<int, Color>(){
-                                                                {0,Color.FromRgb(0,0,0)}, //black
-                                                                {1, Color.FromRgb(184,134,11)}, //dark goldenrod
-                                                                {2,Color.FromRgb(0,139,139)}, //dark cyan
-                                                                {3,Color.FromRgb(199,21,112)}, //medium violet red
-                                                                {4,Color.FromRgb(50,205,50)}, //lime green
-                                                                {5,Color.FromRgb(255,165,0)}, //orange
-                                                                {6,Color.FromRgb(253,99,71)}, //tomato
-                                                                {7,Color.FromRgb(240,255,255)}, //azure
-                                                                {8,Color.FromRgb(210,105,30)}, //chocolate
-                                                                {9,Color.FromRgb(255,0,255)}, //fuschia
-                                                                {10,Color.FromRgb(255,215,0)}, //gold
-                                                                {11,Color.FromRgb(255,0,0)}, //red
-                                                                {12,Color.FromRgb(64,224,208)}, //turquoise
-                                                                {13,Color.FromRgb(154,205,50)}, //yellowgreen
-                                                                {14,Color.FromRgb(255,255,205)}, //blanched almond
-                                                                {15,Color.FromRgb(100,149,237)}, //cornflowerblue
-                                                                {16,Color.FromRgb(128,0,0)}, //maroon
-                                                                {17,Color.FromRgb(128,0,128)}, //OrangeRed
-                                                                {18,Color.FromRgb(0,128,0)}, //Green
-                                                            };
+        private int GradientOffset = 2;
 
         /// <summary>
         /// Current status text to display
         /// </summary>
         private string statusText = null;
-
-        /// <summary>
-        /// Y coord to draw dept visualization
-        /// </summary>
-        private int depthCutoff;
 
         /// <summary>
         /// Has the current frame been segmented
@@ -328,32 +303,19 @@ namespace Microsoft.Samples.Kinect.DepthBasics
                 for (int y = 0; y < height; ++y)
                 {
                     int i = width * y + x;
-                    ushort depth = frameData[i];
-                    /**
-                    double theta = (2 * x - width) / this.depthFrameDescription.HorizontalFieldOfView;
-                    double phi = (height - 2 * y) / this.depthFrameDescription.VerticalFieldOfView;
-                    double newX = depth * Math.Cos(theta) * Math.Sin(phi);
-                    double newY = depth * Math.Sin(theta) * Math.Sin(phi);
-                    double newZ = depth * Math.Cos(phi);
-                    this.ptc[i] = new PointCloudVertex(newX/1000, newY/1000, newZ/1000);
-                    **/
-
+                    ushort depth = (ushort)(frameData[i] * 1);
                     depthMM[i] = depth; 
                 }
             }
-            for(int x = 0; x < width-1; x++)
+            for(int x = GradientOffset; x < width-GradientOffset; x++)
             {
-                for(int y = 0; y < height-1; y++)
+                for(int y = GradientOffset; y < height-GradientOffset; y++)
                 {
-                    if (x > 0 && x < width && y > 0 && y < height)
-                    {
-                        double x1 = Math.Abs(depthMM[getIndexFromXY(x, y, width)] - depthMM[getIndexFromXY(x - 1, y, width)]);
-                        double x2 = Math.Abs(depthMM[getIndexFromXY(x, y, width)] - depthMM[getIndexFromXY(x + 1, y, width)]);
-                        double y1 = Math.Abs(depthMM[getIndexFromXY(x, y, width)] - depthMM[getIndexFromXY(x, y-1, width)]);
-                        double y2 = Math.Abs(depthMM[getIndexFromXY(x, y, width)] - depthMM[getIndexFromXY(x, y+1, width)]);
-
-                        depthPixels[getIndexFromXY(x, y, width)] = (byte)(Math.Sqrt(Math.Pow(x1 + x2, 2) + Math.Pow(y1 + y2, 2)));
-                    }
+                    double x1 = Math.Abs(depthMM[getIndexFromXY(x, y, width)] - depthMM[getIndexFromXY(x - GradientOffset, y, width)]);
+                    double x2 = Math.Abs(depthMM[getIndexFromXY(x, y, width)] - depthMM[getIndexFromXY(x + GradientOffset, y, width)]);
+                    double y1 = Math.Abs(depthMM[getIndexFromXY(x, y, width)] - depthMM[getIndexFromXY(x, y-GradientOffset, width)]);
+                    double y2 = Math.Abs(depthMM[getIndexFromXY(x, y, width)] - depthMM[getIndexFromXY(x, y+GradientOffset, width)]);
+                    depthPixels[getIndexFromXY(x, y, width)] = (byte)(Math.Sqrt(Math.Pow(x1 + x2, 2) + Math.Pow(y1 + y2, 2))); 
                 }
             }
 
