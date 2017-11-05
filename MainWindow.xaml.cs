@@ -8,15 +8,12 @@ namespace Microsoft.Samples.Kinect.DepthBasics
 {
     using System;
     using System.ComponentModel;
-    using System.Diagnostics;
     using System.Globalization;
     using System.IO;
     using System.Windows;
     using System.Windows.Media;
     using System.Windows.Media.Imaging;
     using Microsoft.Kinect;
-    using System.Windows.Controls;
-    using System.Collections.Generic;
     using System.Windows.Input;
 
     /// <summary>
@@ -54,14 +51,10 @@ namespace Microsoft.Samples.Kinect.DepthBasics
         /// </summary>
         private byte[] depthPixels = null;
 
-        private ushort[] depthMM = null;
-
         /// <summary>
-        /// Frame data for specific Y coord, viewed from above
+        /// Depth values in millimeters
         /// </summary>
-        private byte[] depthPixelsY = null;
-
-        private PointCloudVertex[] ptc;
+        private ushort[] depthMM = null;
 
         /// <summary>
         /// Decides which pixels are teken into account for gradient calculations
@@ -99,11 +92,6 @@ namespace Microsoft.Samples.Kinect.DepthBasics
             this.depthPixels = new byte[this.depthFrameDescription.Width * this.depthFrameDescription.Height];
 
             this.depthMM = new ushort[this.depthFrameDescription.Width * this.depthFrameDescription.Height];
-
-            this.depthPixelsY = new byte[this.depthFrameReader.DepthFrameSource.DepthMaxReliableDistance * this.depthFrameDescription.Width];
-
-            this.ptc = new PointCloudVertex[this.depthFrameDescription.Width * this.depthFrameDescription.Height];
-
 
             // create the bitmap to display
             this.depthBitmap = new WriteableBitmap(this.depthFrameDescription.Width, this.depthFrameDescription.Height, 96.0, 96.0, PixelFormats.Gray8, null);
@@ -261,11 +249,11 @@ namespace Microsoft.Samples.Kinect.DepthBasics
                                 ushort maxDepth = ushort.MaxValue;
 
                                 // If you wish to filter by reliable depth distance, uncomment the following line:
-                                //maxDepth = depthFrame.DepthMaxReliableDistance;
+                                //ushort maxDepth = depthFrame.DepthMaxReliableDistance;
 
                                 this.ProcessDepthFrameData(depthBuffer.UnderlyingBuffer, depthBuffer.Size, depthFrame.DepthMinReliableDistance, maxDepth);
                                 depthFrameProcessed = true;
-                                firstFrame = false;
+                                //firstFrame = false;
                             }
                         }
                     }
@@ -291,43 +279,43 @@ namespace Microsoft.Samples.Kinect.DepthBasics
         /// <param name="maxDepth">The maximum reliable depth value for the frame</param>
         private unsafe void ProcessDepthFrameData(IntPtr depthFrameData, uint depthFrameDataSize, ushort minDepth, ushort maxDepth)
         {
-         
-            
             // depth frame data is a 16 bit value
             ushort* frameData = (ushort*)depthFrameData;
             int width = this.depthBitmap.PixelWidth;
             int height = this.depthBitmap.PixelHeight;
 
-            for (int x = 0; x < width; ++x)
+            for (int x = 0; x < width; x++)
             {
-                for (int y = 0; y < height; ++y)
+                for (int y = 0; y < height; y++)
                 {
                     int i = width * y + x;
-                    ushort depth = (ushort)(frameData[i] * 1);
-                    depthMM[i] = depth; 
+                    ushort depth = (ushort)(frameData[i]);
+                    depthMM[i] = depth;
+                    if (x > GradientOffset && y > GradientOffset && x < width - GradientOffset && y < height - GradientOffset)
+                    {
+                        double left =   Math.Abs(depth - (frameData[getIndexFromXY(x - GradientOffset, y, width)]));
+                        double right =  Math.Abs(depth - (frameData[getIndexFromXY(x + GradientOffset, y, width)]));
+                        double bottom = Math.Abs(depth - (frameData[getIndexFromXY(x, y - GradientOffset, width)]));
+                        double top =    Math.Abs(depth - (frameData[getIndexFromXY(x, y + GradientOffset, width)]));
+
+                        depthPixels[getIndexFromXY(x, y, width)] = (byte)(Math.Sqrt(Math.Pow(left + right, 2) + Math.Pow(bottom + top, 2)));
+                    }
                 }
             }
-            for(int x = GradientOffset; x < width-GradientOffset; x++)
-            {
-                for(int y = GradientOffset; y < height-GradientOffset; y++)
-                {
-                    double x1 = Math.Abs(depthMM[getIndexFromXY(x, y, width)] - depthMM[getIndexFromXY(x - GradientOffset, y, width)]);
-                    double x2 = Math.Abs(depthMM[getIndexFromXY(x, y, width)] - depthMM[getIndexFromXY(x + GradientOffset, y, width)]);
-                    double y1 = Math.Abs(depthMM[getIndexFromXY(x, y, width)] - depthMM[getIndexFromXY(x, y-GradientOffset, width)]);
-                    double y2 = Math.Abs(depthMM[getIndexFromXY(x, y, width)] - depthMM[getIndexFromXY(x, y+GradientOffset, width)]);
-                    depthPixels[getIndexFromXY(x, y, width)] = (byte)(Math.Sqrt(Math.Pow(x1 + x2, 2) + Math.Pow(y1 + y2, 2))); 
-                }
-            }
-
-            
-            
-
         }
-
+        
+        /// <summary>
+        /// Gets the 1d index based on 2d (x,y) index
+        /// </summary>
+        /// <param name="x">x index</param>
+        /// <param name="y">y index</param>
+        /// <param name="width">length of each row</param>
+        /// <returns></returns>
         private int getIndexFromXY(int x, int y, int width)
         {
             return width * y + x;
         }
+
         /// <summary>
         /// Renders color pixels into the writeableBitmap.
         /// </summary>
@@ -341,26 +329,6 @@ namespace Microsoft.Samples.Kinect.DepthBasics
            // WritePointCloudToPCD();
         }
 
-        private void WritePointCloudToPCD()
-        {
-            String header = "VERSION .7 \n" +
-                            "FIELDS x y z\n" +
-                            "SIZE 8 8 8\n" +
-                            "TYPE I " +
-                            "WIDTH " + this.depthBitmap.PixelWidth + "\n" +
-                            "HEIGHT " + this.depthBitmap.PixelHeight + "\n" +
-                            "VIEWPOINT 0 0 0 1 0 0 0 \n" +
-                            "POINTS " + this.ptc.Length +
-                            "DATA ascii \n";
-            String data = "";
-            for(int i = 0; i < ptc.Length; i++)
-            {
-                Debug.WriteLine("Index " + i + " of " + ptc.Length);
-                data += ptc[i].ToString() +"\n";
-            }
-            System.IO.File.WriteAllText(@"D:\Dropbox\DepthBasics-WPF\ptc.pcd", header + data);
-            Debug.WriteLine("Point cloud completed");
-        }
 
         /// <summary>
         /// Handles the event which the sensor becomes unavailable (E.g. paused, closed, unplugged).
@@ -374,22 +342,10 @@ namespace Microsoft.Samples.Kinect.DepthBasics
                                                             : Properties.Resources.SensorNotAvailableStatusText;
         }
     }
-    class PointCloudVertex
+    class Obstacle
     {
         double x;
         double y;
         double z;
-
-        public PointCloudVertex(double x, double y, double z)
-        {
-            this.x = x;
-            this.y = y;
-            this.z = z;
-        }
-
-        override public String ToString()
-        {
-            return ""+x+" " + y + " " + z;
-        }
     }
 }

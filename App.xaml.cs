@@ -6,7 +6,6 @@
 
 namespace Microsoft.Samples.Kinect.DepthBasics
 {
-    using System;
     using System.Windows;
 
     /// <summary>
